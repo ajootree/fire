@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1210">
+<title>소방관 전설이 되다</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#1a1210; --panel:#2b1e18; --panel2:#3a2820; --border:#5c4030;
+  --text:#f3e6d8; --muted:#b8a08c; --fire:#ef4444; --fire2:#f97316;
+  --gold:#fbbf24; --hp:#ef4444; --def:#60a5fa; --ok:#4ade80; --bad:#ef4444;
+  --modal-bg:#f2e3c9; --modal-card:#eeddb4; --modal-border:#c9ad7f; --modal-text:#2b2013; --modal-muted:#5c4a38;
+}
+*{box-sizing:border-box;margin:0;padding:0;user-select:none;font-family:'Noto Sans KR',Malgun Gothic,sans-serif;-webkit-tap-highlight-color:transparent;}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);}
+#app{position:fixed;inset:0;display:flex;flex-direction:column;}
+
+/* ===== Canvas layer ===== */
+#stage-wrap{position:relative;flex:1;overflow:hidden;background:#000;}
+#stage{position:absolute;top:0;left:0;width:100%;height:100%;image-rendering:pixelated;}
+
+/* ===== HUD ===== */
+#hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:10px 12px;pointer-events:none;z-index:50;}
+#hud-left{display:flex;flex-direction:column;gap:6px;background:rgba(30,20,16,0.82);border:2px solid var(--border);border-radius:12px;padding:8px 12px;backdrop-filter:blur(6px);pointer-events:auto;min-width:150px;}
+#hud-name{font-size:0.82rem;font-weight:900;color:var(--fire2);}
+.hud-bar-row{display:flex;align-items:center;gap:6px;font-size:0.7rem;color:var(--muted);}
+.hud-bar{flex:1;height:8px;background:rgba(0,0,0,0.4);border-radius:5px;overflow:hidden;min-width:70px;}
+.hud-bar-fill{height:100%;border-radius:5px;transition:width .25s;}
+#hp-fill{background:linear-gradient(90deg,#dc2626,#ef4444);}
+#xp-fill{background:linear-gradient(90deg,#60a5fa,#818cf8);}
+#lv-badge{background:var(--fire);color:#fff;border-radius:6px;padding:1px 6px;font-size:0.68rem;font-weight:700;}
+.hud-bar-label{width:28px;text-align:center;font-size:0.62rem;color:var(--muted);flex-shrink:0;}
+#hud-res{display:flex;gap:8px;}
+.res-chip{background:rgba(30,20,16,0.82);border:2px solid var(--border);border-radius:10px;padding:6px 10px;text-align:center;pointer-events:auto;backdrop-filter:blur(6px);}
+.res-chip .lbl{font-size:0.6rem;color:var(--muted);}
+.res-chip .val{font-size:1rem;font-weight:800;}
+.res-chip.gold .val{color:var(--gold);}
+.res-chip.mat .val{color:#93c5fd;}
+
+/* ===== Bottom action buttons ===== */
+#action-bar{position:absolute;bottom:14px;right:14px;display:flex;flex-direction:column;gap:8px;z-index:50;}
+.action-btn{background:rgba(30,20,16,0.88);border:2px solid var(--border);color:var(--text);border-radius:12px;padding:9px 12px;font-weight:700;font-size:0.78rem;cursor:pointer;box-shadow:0 4px 12px rgba(0,0,0,0.35);backdrop-filter:blur(6px);display:flex;align-items:center;gap:6px;}
+.action-btn:active{transform:scale(0.95);}
+
+/* ===== D-Pad ===== */
+#dpad{position:absolute;bottom:18px;left:18px;width:132px;height:132px;z-index:50;}
+.dpad-btn{position:absolute;width:44px;height:44px;background:rgba(30,20,16,0.85);border:2px solid var(--border);border-radius:10px;color:var(--text);font-size:1.1rem;display:flex;align-items:center;justify-content:center;cursor:pointer;}
+.dpad-btn:active{background:rgba(239,68,68,0.5);}
+#dpad-up{top:0;left:44px;} #dpad-down{top:88px;left:44px;}
+#dpad-left{top:44px;left:0;} #dpad-right{top:44px;left:88px;}
+#dpad-center{position:absolute;top:44px;left:44px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:1.3rem;}
+
+/* ===== Dialogue Box (불씨요정) ===== */
+#dialogue-box{position:absolute;left:0;right:0;bottom:0;z-index:200;display:none;padding:16px;pointer-events:auto;}
+#dialogue-box.show{display:flex;}
+#dialogue-inner{margin:0 auto;max-width:640px;width:100%;background:linear-gradient(135deg,rgba(43,30,24,0.97),rgba(26,18,16,0.98));border:3px solid var(--fire2);border-radius:16px;padding:14px 18px;display:flex;gap:14px;align-items:flex-start;box-shadow:0 12px 30px rgba(0,0,0,0.5);}
+#dlg-portrait{font-size:2.6rem;line-height:1;filter:drop-shadow(0 0 10px rgba(249,115,22,0.7));animation:flicker 1.6s ease-in-out infinite;flex-shrink:0;}
+@keyframes flicker{0%,100%{transform:scale(1) rotate(-2deg);}50%{transform:scale(1.08) rotate(2deg);}}
+#dlg-body{flex:1;min-width:0;}
+#dlg-name{font-size:0.82rem;font-weight:900;color:var(--fire2);margin-bottom:4px;}
+#dlg-text{font-size:0.98rem;line-height:1.5;color:var(--text);word-break:keep-all;min-height:2.6em;}
+#dlg-next{margin-top:8px;align-self:flex-end;background:var(--fire);color:#fff;border:none;border-radius:8px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;float:right;}
+
+/* ===== Modal shared ===== */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);backdrop-filter:blur(6px);z-index:2000;justify-content:center;align-items:center;padding:16px;}
+.modal-bg.show{display:flex;}
+.modal-card{background:linear-gradient(135deg,#f5e6c8,#eeddb4);color:var(--modal-text);border-radius:16px;width:100%;box-shadow:0 20px 45px rgba(0,0,0,0.4);position:relative;animation:popin .25s cubic-bezier(.34,1.56,.64,1);}
+@keyframes popin{from{transform:scale(.85) translateY(16px);opacity:0;}to{transform:scale(1) translateY(0);opacity:1;}}
+.modal-close{position:absolute;top:10px;right:12px;background:none;border:none;font-size:1.8rem;color:var(--modal-muted);cursor:pointer;line-height:1;}
+
+/* ===== Quiz Modal ===== */
+#quiz-modal .modal-card{max-width:480px;padding:24px;text-align:center;}
+#quiz-cat{display:inline-block;padding:4px 12px;border-radius:99px;font-size:0.7rem;font-weight:800;background:rgba(220,38,38,0.15);color:#b91c1c;margin-bottom:10px;}
+#quiz-q{font-size:1.08rem;font-weight:700;line-height:1.5;margin-bottom:16px;word-break:keep-all;}
+.quiz-opt{display:block;width:100%;text-align:left;padding:11px 14px;margin:6px 0;background:rgba(0,0,0,0.04);border:1px solid rgba(0,0,0,0.15);border-radius:10px;font-size:0.92rem;color:var(--modal-text);cursor:pointer;font-weight:500;transition:.15s;}
+.quiz-opt:hover:not(:disabled){background:rgba(239,68,68,0.12);border-color:var(--fire);}
+.quiz-opt.correct{background:rgba(74,222,128,0.35)!important;border-color:#16a34a!important;color:#14532d;font-weight:700;}
+.quiz-opt.wrong{background:rgba(239,68,68,0.28)!important;border-color:#dc2626!important;color:#7f1d1d;}
+#quiz-explain{display:none;margin-top:14px;padding:12px 14px;border-radius:10px;background:rgba(0,0,0,0.05);font-size:0.86rem;line-height:1.5;text-align:left;color:var(--modal-text);border-left:4px solid var(--fire2);}
+#quiz-explain.show{display:block;}
+#quiz-explain .who{font-weight:800;color:#b45309;margin-bottom:3px;}
+#quiz-next-btn{display:none;margin-top:14px;background:var(--fire);color:#fff;border:none;border-radius:10px;padding:10px 20px;font-weight:800;cursor:pointer;font-size:0.9rem;}
+#quiz-next-btn.show{display:inline-block;}
+#quiz-progress{display:none;font-size:0.75rem;font-weight:800;color:#92400e;margin-bottom:8px;}
+#quiz-progress.show{display:block;}
+#quiz-modal.exam-mode #quiz-cat{background:rgba(217,119,6,0.18);color:#92400e;}
+#quiz-modal.exam-mode .modal-card{border:3px solid #f59e0b;}
+#exam-result-modal .modal-card{max-width:420px;padding:30px;text-align:center;}
+#exam-result-icon{font-size:3.4rem;margin-bottom:10px;}
+#exam-result-title{font-size:1.3rem;font-weight:900;margin-bottom:10px;color:#92400e;}
+#exam-result-score{font-size:1rem;margin-bottom:14px;color:var(--modal-text);}
+#exam-result-reward{font-weight:700;color:#b45309;margin-bottom:18px;font-size:0.92rem;}
+#exam-result-close{background:var(--fire);color:#fff;border:none;border-radius:10px;padding:11px 26px;font-weight:800;cursor:pointer;font-size:0.95rem;}
+
+/* ===== Battle Overlay ===== */
+#battle-overlay{position:fixed;inset:0;z-index:1500;display:none;flex-direction:column;background:linear-gradient(180deg,#2a1210,#160b09 60%);}
+#battle-overlay.show{display:flex;}
+#battle-arena{flex:1;position:relative;display:flex;align-items:center;justify-content:space-between;padding:8vh 8vw;}
+.battle-side{display:flex;flex-direction:column;align-items:center;gap:10px;}
+#battle-monster-emoji{font-size:6.5rem;filter:drop-shadow(0 10px 18px rgba(0,0,0,0.5));animation:mfloat 2.4s ease-in-out infinite;}
+@keyframes mfloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-14px);}}
+#battle-player-emoji{font-size:5.2rem;filter:drop-shadow(0 10px 18px rgba(0,0,0,0.5));}
+.battle-hpbar{width:180px;background:rgba(0,0,0,0.5);border:2px solid var(--border);border-radius:8px;padding:6px 10px;}
+.battle-hpbar .name{font-size:0.78rem;font-weight:800;margin-bottom:4px;display:flex;justify-content:space-between;}
+.battle-hpbar .bar{height:10px;background:rgba(255,255,255,0.08);border-radius:6px;overflow:hidden;}
+.battle-hpbar .bar-fill{height:100%;background:linear-gradient(90deg,#dc2626,#ef4444);transition:width .3s;}
+#battle-log{min-height:2.4em;text-align:center;color:var(--text);font-size:0.92rem;padding:6px 20px;font-weight:600;}
+#battle-menu{background:rgba(20,13,11,0.95);border-top:3px solid var(--fire2);padding:14px 16px calc(14px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;}
+#battle-actions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;}
+.battle-btn{background:var(--panel2);border:2px solid var(--border);color:var(--text);border-radius:10px;padding:12px 6px;font-weight:800;font-size:0.85rem;cursor:pointer;}
+.battle-btn:active{transform:scale(0.96);}
+.battle-btn.attack{background:linear-gradient(135deg,#dc2626,#991b1b);border-color:#f87171;}
+.battle-btn.flee{background:linear-gradient(135deg,#4b5563,#374151);}
+#battle-toolrow{display:none;gap:8px;flex-wrap:wrap;}
+#battle-toolrow.show{display:flex;}
+.tool-chip{background:var(--panel2);border:2px solid var(--border);border-radius:10px;padding:8px 12px;font-size:0.8rem;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;}
+.tool-chip .fx{font-size:0.65rem;color:var(--muted);}
+
+/* ===== Shop / Notebook / Quest Modals ===== */
+#shop-modal .modal-card, #notebook-modal .modal-card, #hq-modal .modal-card{max-width:560px;max-height:82vh;overflow-y:auto;padding:22px;}
+.modal-title{font-size:1.2rem;font-weight:900;margin-bottom:14px;color:#92400e;}
+.shop-tabs{display:flex;gap:6px;margin-bottom:12px;}
+.shop-tab{padding:6px 12px;border-radius:8px;border:1px solid var(--modal-border);background:rgba(0,0,0,0.04);font-weight:700;font-size:0.8rem;cursor:pointer;}
+.shop-tab.active{background:var(--fire);color:#fff;border-color:var(--fire);}
+.shop-item{display:flex;align-items:center;gap:12px;padding:12px;border:1px solid var(--modal-border);border-radius:12px;margin-bottom:10px;background:rgba(255,255,255,0.25);}
+.shop-item .ic{font-size:1.8rem;width:46px;text-align:center;}
+.shop-item .info{flex:1;}
+.shop-item .info h4{font-size:0.95rem;margin-bottom:2px;}
+.shop-item .info p{font-size:0.74rem;color:var(--modal-muted);line-height:1.35;}
+.shop-item .buy-btn{background:var(--fire);color:#fff;border:none;border-radius:8px;padding:8px 12px;font-weight:800;font-size:0.78rem;cursor:pointer;white-space:nowrap;}
+.shop-item .buy-btn:disabled{background:#9ca3af;cursor:not-allowed;}
+.shop-item.equipped{border-color:#16a34a;background:rgba(74,222,128,0.18);}
+
+.note-cat{font-weight:900;color:#92400e;font-size:0.9rem;margin:14px 0 8px;border-bottom:2px solid var(--modal-border);padding-bottom:4px;}
+.note-entry{background:rgba(255,255,255,0.3);border-left:4px solid var(--fire2);border-radius:8px;padding:10px 12px;margin-bottom:8px;font-size:0.85rem;line-height:1.5;}
+
+#quest-panel{position:absolute;top:70px;right:12px;width:230px;background:rgba(30,20,16,0.9);border:2px solid var(--fire2);border-radius:12px;padding:12px;z-index:60;pointer-events:auto;display:none;}
+#quest-panel.show{display:block;}
+#quest-panel h3{font-size:0.9rem;color:var(--fire2);margin-bottom:6px;}
+#quest-goal{font-size:0.76rem;color:#fca5a5;margin-bottom:6px;}
+#quest-reward{font-size:0.76rem;color:var(--gold);font-weight:700;}
+#quest-deliver-btn{display:none;width:100%;margin-top:8px;background:var(--ok);color:#052e16;border:none;border-radius:8px;padding:8px;font-weight:800;cursor:pointer;}
+#quest-deliver-btn.show{display:block;}
+
+/* ===== Toasts ===== */
+#toast-box{position:fixed;top:calc(12px + env(safe-area-inset-top));right:12px;z-index:9999;display:flex;flex-direction:column;gap:6px;pointer-events:none;align-items:flex-end;}
+.toast{background:var(--panel2);border:1px solid var(--border);border-left:4px solid var(--fire2);padding:10px 16px;border-radius:10px;font-size:0.85rem;font-weight:700;box-shadow:0 8px 20px rgba(0,0,0,0.4);color:var(--text);max-width:280px;animation:tin .35s cubic-bezier(.34,1.56,.64,1);}
+@keyframes tin{from{transform:translateX(110%);opacity:0;}to{transform:translateX(0);opacity:1;}}
+.toast.out{animation:tout .25s ease forwards;}
+.toast.success{border-left-color:#4ade80;}
+.toast.error{border-left-color:#ef4444;}
+.toast.warning{border-left-color:var(--gold);}
+.toast.info{border-left-color:#60a5fa;}
+@keyframes tout{to{transform:translateX(110%);opacity:0;}}
+
+/* ===== Interact prompt ===== */
+#interact-hint{position:absolute;left:50%;bottom:170px;transform:translateX(-50%);background:rgba(0,0,0,0.65);color:#fff;padding:6px 14px;border-radius:20px;font-size:0.8rem;font-weight:700;z-index:60;display:none;}
+#interact-hint.show{display:block;}
+
+/* ===== Boot / width gate ===== */
+#boot-screen{position:fixed;inset:0;z-index:99999;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
+#boot-screen h1{font-size:1.4rem;background:linear-gradient(135deg,#f97316,#fbbf24);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;font-weight:900;}
+#boot-screen p{color:var(--muted);font-size:0.85rem;}
+#boot-start-btn{margin-top:14px;background:var(--fire);color:#fff;border:none;border-radius:10px;padding:12px 28px;font-weight:800;font-size:1rem;cursor:pointer;}
+
+::-webkit-scrollbar{width:6px;} ::-webkit-scrollbar-thumb{background:var(--modal-border);border-radius:99px;}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="stage-wrap">
+    <canvas id="stage"></canvas>
+
+    <div id="hud">
+      <div id="hud-left">
+        <div id="hud-name">신입 소방관</div>
+        <div class="hud-bar-row"><span id="lv-badge">Lv1</span>
+          <div class="hud-bar"><div id="hp-fill" class="hud-bar-fill" style="width:100%"></div></div>
+          <span id="hp-text">30/30</span>
+        </div>
+        <div class="hud-bar-row">
+          <span class="hud-bar-label">EXP</span>
+          <div class="hud-bar"><div id="xp-fill" class="hud-bar-fill" style="width:0%"></div></div>
+          <span id="xp-text">0/30</span>
+        </div>
+      </div>
+      <div id="hud-res">
+        <div class="res-chip gold"><div class="lbl">골드</div><div class="val" id="disp-gold">0</div></div>
+        <div class="res-chip mat"><div class="lbl">자재</div><div class="val" id="disp-mat">0</div></div>
+      </div>
+    </div>
+
+    <div id="quest-panel">
+      <h3 id="quest-title">퀘스트</h3>
+      <div id="quest-desc" style="font-size:0.78rem;margin-bottom:6px;"></div>
+      <div id="quest-goal"></div>
+      <div id="quest-reward"></div>
+      <button id="quest-deliver-btn">완료 보고!</button>
+    </div>
+
+    <div id="interact-hint">눌러서 상호작용 (Space/E)</div>
+
+    <div id="action-bar">
+      <button class="action-btn" id="btn-notebook">📔 안전수첩</button>
+      <button class="action-btn" id="btn-quest-toggle">📜 퀘스트</button>
+      <button class="action-btn" id="btn-interact">✋ 상호작용</button>
+    </div>
+
+    <div id="dpad">
+      <div class="dpad-btn" id="dpad-up">▲</div>
+      <div class="dpad-btn" id="dpad-down">▼</div>
+      <div class="dpad-btn" id="dpad-left">◀</div>
+      <div class="dpad-btn" id="dpad-right">▶</div>
+      <div id="dpad-center">🔥</div>
+    </div>
+
+    <div id="dialogue-box">
+      <div id="dialogue-inner">
+        <div id="dlg-portrait">🔥</div>
+        <div id="dlg-body">
+          <div id="dlg-name">불씨</div>
+          <div id="dlg-text"></div>
+          <button id="dlg-skip" style="display:none;background:none;border:1px solid var(--border);color:var(--muted);border-radius:8px;padding:6px 12px;font-size:0.78rem;cursor:pointer;float:right;margin-right:8px;">건너뛰기</button>
+          <button id="dlg-next">다음 ▶</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quiz Modal -->
+<div class="modal-bg" id="quiz-modal">
+  <div class="modal-card" id="quiz-card">
+    <span id="quiz-cat">화재원인</span>
+    <div id="quiz-progress"></div>
+    <div id="quiz-q">문제 내용</div>
+    <div id="quiz-opts"></div>
+    <div id="quiz-explain"><div class="who">불씨:</div><div id="quiz-explain-text"></div></div>
+    <button id="quiz-next-btn">계속하기</button>
+  </div>
+</div>
+
+<!-- Chapter Exam Result Modal -->
+<div class="modal-bg" id="exam-result-modal">
+  <div class="modal-card">
+    <div id="exam-result-icon">🎖️</div>
+    <div id="exam-result-title">진급시험 결과</div>
+    <div id="exam-result-score"></div>
+    <div id="exam-result-reward"></div>
+    <button id="exam-result-close">확인</button>
+  </div>
+</div>
+
+<!-- Battle Overlay -->
+<div id="battle-overlay">
+  <div id="battle-arena">
+    <div class="battle-side">
+      <div class="battle-hpbar"><div class="name"><span id="mon-name">몬스터</span><span id="mon-hp-text">10/10</span></div>
+        <div class="bar"><div class="bar-fill" id="mon-hp-fill" style="width:100%"></div></div></div>
+      <div id="battle-monster-emoji">👹</div>
+    </div>
+    <div class="battle-side">
+      <div id="battle-player-emoji">🧑‍🚒</div>
+      <div class="battle-hpbar"><div class="name"><span>나</span><span id="ply-hp-text">30/30</span></div>
+        <div class="bar"><div class="bar-fill" id="ply-hp-fill" style="width:100%"></div></div></div>
+    </div>
+  </div>
+  <div id="battle-log">몬스터가 나타났다!</div>
+  <div id="battle-menu">
+    <div id="battle-toolrow"></div>
+    <div id="battle-actions">
+      <button class="battle-btn attack" id="btn-battle-attack">🎯 퀴즈로 공격</button>
+      <button class="battle-btn" id="btn-battle-item">🎒 아이템 사용</button>
+      <button class="battle-btn flee" id="btn-battle-flee">🏃 도망가기</button>
+    </div>
+  </div>
+</div>
+
+<!-- Shop Modal -->
+<div class="modal-bg" id="shop-modal">
+  <div class="modal-card">
+    <button class="modal-close" data-close="shop-modal">&times;</button>
+    <div class="modal-title">🛒 장비상점</div>
+    <div class="shop-tabs">
+      <div class="shop-tab active" data-shop-tab="tool">공격도구</div>
+      <div class="shop-tab" data-shop-tab="armor">방어구</div>
+      <div class="shop-tab" data-shop-tab="item">소모품</div>
+    </div>
+    <div id="shop-list"></div>
+  </div>
+</div>
+
+<!-- Safety Notebook Modal -->
+<div class="modal-bg" id="notebook-modal">
+  <div class="modal-card">
+    <button class="modal-close" data-close="notebook-modal">&times;</button>
+    <div class="modal-title">📔 안전 수첩 <span style="font-size:0.7rem;color:var(--modal-muted);font-weight:500;">— 불씨가 정리해준 것들</span></div>
+    <div id="notebook-body"></div>
+  </div>
+</div>
+
+<!-- HQ Modal -->
+<div class="modal-bg" id="hq-modal">
+  <div class="modal-card">
+    <button class="modal-close" data-close="hq-modal">&times;</button>
+    <div class="modal-title" id="hq-title">🏚️ 우리 소방서</div>
+    <div id="hq-body"></div>
+  </div>
+</div>
+
+<!-- Boot Screen -->
+<div id="boot-screen">
+  <div style="font-size:3.4rem;">🚒🔥</div>
+  <h1>소방관 전설이 되다</h1>
+  <p>화살표 키 또는 D-패드로 이동하세요</p>
+  <button id="boot-start-btn">시작하기</button>
+</div>
+
+<div id="toast-box"></div>
+
+<script src="js/data-quiz.js"></script>
+<script src="js/data-content.js"></script>
+<script src="js/engine-scene.js"></script>
+<script src="js/engine-battle.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
