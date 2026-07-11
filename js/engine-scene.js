@@ -23,6 +23,9 @@ const SceneEngine = (function(){
   let heldDir = null; // 'up'|'down'|'left'|'right'|null
   let inputLocked = false; // 모달/대화/전투 중엔 이동 불가
 
+  const ZOOM_MIN = 0.6, ZOOM_MAX = 2.2;
+  const camera = { zoom:1, panX:0, panY:0 }; // panX/panY: 드래그로 더해지는 수동 오프셋(월드 좌표계)
+
   const hooks = {
     onDoor:null, onNpcInteract:null, onFireEvent:null, onMonsterEncounter:null,
     onShopInteract:null, onHqUpgradeInteract:null, onTileEnter:null,
@@ -46,7 +49,63 @@ const SceneEngine = (function(){
     window.addEventListener('resize', resizeCanvas);
     resizeCanvas();
     bindInput();
+    bindCameraGestures();
     requestAnimationFrame(loop);
+  }
+
+  // ===== 드래그 팬 + 핀치 줌 =====
+  function bindCameraGestures(){
+    const el = canvas;
+    el.style.touchAction = 'none';
+    const pointers = new Map();
+    let dragStart = null;   // {x,y,panX,panY}
+    let pinchStart = null;  // {dist, zoom}
+    const dist = (a,b)=> Math.hypot(a.x-b.x, a.y-b.y);
+    const clamp = (v,min,max)=> Math.max(min, Math.min(max, v));
+
+    el.addEventListener('pointerdown', (e)=>{
+      pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+      try{ el.setPointerCapture(e.pointerId); }catch(err){}
+      if(pointers.size === 1){
+        dragStart = { x:e.clientX, y:e.clientY, panX:camera.panX, panY:camera.panY };
+        pinchStart = null;
+      } else if(pointers.size === 2){
+        dragStart = null;
+        const pts = [...pointers.values()];
+        pinchStart = { dist: dist(pts[0], pts[1]), zoom: camera.zoom };
+      }
+    });
+    el.addEventListener('pointermove', (e)=>{
+      if(!pointers.has(e.pointerId)) return;
+      pointers.set(e.pointerId, {x:e.clientX, y:e.clientY});
+      if(pointers.size === 1 && dragStart){
+        const dx = e.clientX - dragStart.x, dy = e.clientY - dragStart.y;
+        camera.panX = dragStart.panX - dx / camera.zoom;
+        camera.panY = dragStart.panY - dy / camera.zoom;
+      } else if(pointers.size === 2 && pinchStart){
+        const pts = [...pointers.values()];
+        const d = dist(pts[0], pts[1]);
+        camera.zoom = clamp(pinchStart.zoom * (d / pinchStart.dist), ZOOM_MIN, ZOOM_MAX);
+      }
+    });
+    const endPointer = (e)=>{
+      pointers.delete(e.pointerId);
+      if(pointers.size < 2) pinchStart = null;
+      if(pointers.size === 1){
+        const pts = [...pointers.values()];
+        dragStart = { x:pts[0].x, y:pts[0].y, panX:camera.panX, panY:camera.panY };
+      } else {
+        dragStart = null;
+      }
+    };
+    el.addEventListener('pointerup', endPointer);
+    el.addEventListener('pointercancel', endPointer);
+    // 데스크톱 보조: 마우스 휠/트랙패드로도 확대·축소
+    el.addEventListener('wheel', (e)=>{
+      e.preventDefault();
+      const factor = e.deltaY > 0 ? 0.92 : 1.08;
+      camera.zoom = clamp(camera.zoom * factor, ZOOM_MIN, ZOOM_MAX);
+    }, { passive:false });
   }
 
   function tileAt(gx, gy){
@@ -102,6 +161,7 @@ const SceneEngine = (function(){
     player.toX = sp.x; player.toY = sp.y;
     player.px = sp.x * TILE_SIZE; player.py = sp.y * TILE_SIZE;
     player.moving = false;
+    camera.panX = 0; camera.panY = 0; // 씬이 바뀌면 수동 팬은 초기화(줌 배율은 유지)
     if(hooks.onSceneLoaded) hooks.onSceneLoaded(def);
   }
 
@@ -234,12 +294,27 @@ const SceneEngine = (function(){
 
     const mapW = currentScene.grid[0].length * TILE_SIZE;
     const mapH = currentScene.grid.length * TILE_SIZE;
-    let camX = player.px + TILE_SIZE/2 - W/2;
-    let camY = player.py + TILE_SIZE/2 - H/2;
-    camX = Math.max(0, Math.min(camX, Math.max(0, mapW-W)));
-    camY = Math.max(0, Math.min(camY, Math.max(0, mapH-H)));
+    const zoom = camera.zoom;
+    const visW = W / zoom, visH = H / zoom; // 확대/축소를 반영한 실제 보이는 월드 영역 크기
+
+    let camX, camY;
+    if(mapW <= visW){
+      camX = (mapW - visW) / 2; // 맵이 화면보다 작으면 화면 중앙에 오도록
+    } else {
+      camX = player.px + TILE_SIZE/2 - visW/2;
+      camX = Math.max(0, Math.min(camX, mapW - visW));
+    }
+    if(mapH <= visH){
+      camY = (mapH - visH) / 2;
+    } else {
+      camY = player.py + TILE_SIZE/2 - visH/2;
+      camY = Math.max(0, Math.min(camY, mapH - visH));
+    }
+    camX += camera.panX;
+    camY += camera.panY;
 
     ctx.save();
+    ctx.scale(zoom, zoom);
     ctx.translate(-camX, -camY);
 
     // 바닥/벽
