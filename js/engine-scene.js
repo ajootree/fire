@@ -324,13 +324,39 @@ const SceneEngine = (function(){
         const ch = row[x];
         const px = x*TILE_SIZE, py = y*TILE_SIZE;
         if(ch === '#'){
-          ctx.fillStyle = '#1c1310';
-          ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
-          ctx.strokeStyle = 'rgba(255,255,255,0.05)';
-          ctx.strokeRect(px+0.5,py+0.5,TILE_SIZE-1,TILE_SIZE-1);
+          drawWallTile(px, py, y);
         } else {
           ctx.fillStyle = ((x+y)%2===0) ? shade(currentScene.bg, 1) : shade(currentScene.bg, 0.92);
           ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+          // 미세한 바닥 그레인(질감) — 타일 좌표 기반 고정 난수라 프레임마다 안 흔들림
+          const g = rand01(x,y,1);
+          if(g < 0.35){
+            ctx.fillStyle = shade(currentScene.bg, g<0.15 ? 1.3 : 0.62);
+            const sx = px + 7 + rand01(x,y,2)*(TILE_SIZE-14);
+            const sy = py + 7 + rand01(x,y,3)*(TILE_SIZE-14);
+            const sz = 1.4 + rand01(x,y,4)*1.6;
+            ctx.beginPath(); ctx.arc(sx,sy,sz,0,Math.PI*2); ctx.fill();
+          }
+        }
+      }
+    }
+
+    // 바닥 장식(잔디·자갈 등, 엔티티 없는 타일에만 드물게 — 씬마다 decor 세트가 있을 때만)
+    if(currentScene.decor && currentScene.decor.length){
+      for(let y=0;y<currentScene.grid.length;y++){
+        const row = currentScene.grid[y];
+        for(let x=0;x<row.length;x++){
+          if(row[x] === '#') continue;
+          const r = rand01(x,y,7);
+          if(r >= 0.09) continue;
+          if(findEntityAt(x,y)) continue;
+          const emoji = currentScene.decor[Math.floor(rand01(x,y,8)*currentScene.decor.length)];
+          ctx.save();
+          ctx.globalAlpha = 0.55;
+          ctx.font = (TILE_SIZE*0.4)+'px sans-serif';
+          ctx.textAlign='center'; ctx.textBaseline='middle';
+          ctx.fillText(emoji, x*TILE_SIZE+TILE_SIZE/2, y*TILE_SIZE+TILE_SIZE/2);
+          ctx.restore();
         }
       }
     }
@@ -352,19 +378,48 @@ const SceneEngine = (function(){
       drawEmoji(e.icon, e.x, e.y, true);
       drawLabel(e.label, e.x, e.y);
     });
-    // 몬스터
+    // 몬스터 (은은하게 위아래로 까딱거리는 대기 모션)
     liveMonsters.forEach(m=>{
       const mdef = MONSTERS[m.monsterId];
-      drawEmoji(mdef.icon, m.x, m.y);
+      drawEmoji(mdef.icon, m.x, m.y, true);
       drawLabel(mdef.name, m.x, m.y);
     });
 
-    // 플레이어
+    // 플레이어 (이동 중엔 한 걸음마다 살짝 통통 튀는 홉 모션)
+    const hop = player.moving ? -Math.sin(player.moveT*Math.PI)*6 : 0;
     ctx.font = (TILE_SIZE*0.8)+'px sans-serif';
     ctx.textAlign='center'; ctx.textBaseline='middle';
-    ctx.fillText(player.emoji, player.px+TILE_SIZE/2, player.py+TILE_SIZE/2);
+    ctx.fillText(player.emoji, player.px+TILE_SIZE/2, player.py+TILE_SIZE/2+hop);
 
     ctx.restore();
+  }
+
+  // 타일 좌표 기반 고정 의사난수 (프레임마다 값이 안 바뀌어서 텍스처가 깜빡이지 않음)
+  function hash2(x,y,seed){
+    let h = (x*374761393 + y*668265263 + (seed||0)*2246822519) >>> 0;
+    h = Math.imul(h ^ (h>>>13), 1274126177) >>> 0;
+    return (h ^ (h>>>16)) >>> 0;
+  }
+  function rand01(x,y,seed){ return (hash2(x,y,seed) % 10000) / 10000; }
+
+  function drawWallTile(px, py, gridY){
+    ctx.fillStyle = '#1c1310';
+    ctx.fillRect(px,py,TILE_SIZE,TILE_SIZE);
+    // 벽돌 줄눈(가로 중앙 + 세로, 짝수/홀수 줄마다 반 칸씩 어긋나게)
+    ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(px, py+TILE_SIZE/2); ctx.lineTo(px+TILE_SIZE, py+TILE_SIZE/2);
+    const offset = (gridY % 2 === 0) ? TILE_SIZE/2 : 0;
+    ctx.moveTo(px+offset, py); ctx.lineTo(px+offset, py+TILE_SIZE/2);
+    ctx.stroke();
+    // 위쪽 하이라이트 / 아래쪽 그림자로 입체감
+    ctx.fillStyle = 'rgba(255,255,255,0.07)';
+    ctx.fillRect(px,py,TILE_SIZE,3);
+    ctx.fillStyle = 'rgba(0,0,0,0.35)';
+    ctx.fillRect(px,py+TILE_SIZE-3,TILE_SIZE,3);
+    ctx.strokeStyle = 'rgba(255,255,255,0.04)';
+    ctx.strokeRect(px+0.5,py+0.5,TILE_SIZE-1,TILE_SIZE-1);
   }
 
   function drawEmoji(emoji, gx, gy, flicker){

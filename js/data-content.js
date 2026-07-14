@@ -137,6 +137,7 @@ const QUESTS = [
 const SCENES = {
   village: {
     id:'village', name:'마을', bg:'#233022',
+    decor:['🌱','🌿','🪨','🌼'],
     grid:[
       '##############',
       '#............#',
@@ -162,6 +163,7 @@ const SCENES = {
   },
   hq: {
     id:'hq', name:'소방서', bg:'#2a1c14',
+    decor:['📦','⚙️','🧯'],
     grid:[
       '##########',
       '#........#',
@@ -179,6 +181,7 @@ const SCENES = {
   },
   home_dungeon: {
     id:'home_dungeon', name:'우리 집 화재현장', bg:'#3a1410', category:'home',
+    decor:['💨','⚫'],
     grid:[
       '############',
       '#..........#',

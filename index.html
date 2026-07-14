@@ -112,7 +112,17 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 #battle-overlay{position:fixed;inset:0;z-index:1500;display:none;flex-direction:column;background:linear-gradient(180deg,#1c2429,#12171b 60%);}
 #battle-overlay.show{display:flex;}
 #battle-arena{flex:1;position:relative;display:flex;align-items:center;justify-content:space-between;padding:8vh 8vw;}
-.battle-side{display:flex;flex-direction:column;align-items:center;gap:10px;}
+.battle-side{display:flex;flex-direction:column;align-items:center;gap:10px;position:relative;}
+@keyframes hitFlash{0%{filter:brightness(1) saturate(1);}25%{filter:brightness(2.4) saturate(0.3);}100%{filter:brightness(1) saturate(1);}}
+.hit-flash{animation:hitFlash 0.3s ease;}
+@keyframes hitShake{0%,100%{transform:translateX(0);}20%{transform:translateX(-9px);}40%{transform:translateX(8px);}60%{transform:translateX(-5px);}80%{transform:translateX(3px);}}
+.hit-shake{animation:hitShake 0.35s ease;}
+@keyframes dmgPopup{0%{transform:translate(-50%,0) scale(1);opacity:1;}100%{transform:translate(-50%,-46px) scale(1.15);opacity:0;}}
+.dmg-popup{position:absolute;left:50%;top:20%;font-size:1.5rem;font-weight:900;pointer-events:none;animation:dmgPopup 0.8s ease forwards;text-shadow:0 2px 5px rgba(0,0,0,0.7);z-index:10;}
+.dmg-popup.heal{color:#4ade80;}
+.dmg-popup.dmg{color:#ffd23f;}
+.dmg-popup.crit{color:#ff5544;font-size:2rem;}
+.dmg-popup.weak{color:#9aa5ad;font-size:1.1rem;}
 #battle-monster-emoji{font-size:6.5rem;filter:drop-shadow(0 10px 18px rgba(0,0,0,0.5));animation:mfloat 2.4s ease-in-out infinite;}
 @keyframes mfloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-14px);}}
 #battle-player-emoji{font-size:5.2rem;filter:drop-shadow(0 10px 18px rgba(0,0,0,0.5));}
