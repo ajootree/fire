@@ -7,6 +7,7 @@
 // GameState
 // ============================================================
 const GameState = {
+  title:'이상한 아이', // 스토리 진행에 따라 승격됨: 이상한 아이 → 수습 소방관 → 신입 소방관
   gold:20, materials:10, level:1, xp:0, hp:30,
   armorTier:{helmet:1, suit:1, gloves:1},
   toolsOwned:['powder'],
@@ -45,6 +46,16 @@ const GameState = {
     }
     updateHud();
   },
+  updateTitle(){
+    let next = '이상한 아이';
+    if(this.questIndex >= QUESTS.length) next = '신입 소방관';
+    else if(this.questIndex >= 3) next = '수습 소방관';
+    if(next !== this.title){
+      this.title = next;
+      toast(`칭호 획득: "${next}"`, 'success');
+      updateHud();
+    }
+  },
   notebookAdd(cat, title, text){
     if(!this.notebook[cat]) this.notebook[cat] = [];
     if(this.notebook[cat].some(e=>e.title===title)) return;
@@ -82,11 +93,13 @@ const GameState = {
     this.questDeliverReady = false;
     const nq = QUESTS[this.questIndex];
     if(nq && nq.goal.type === 'auto') this.questDeliverReady = true;
+    this.updateTitle();
     updateHud(); updateQuestPanel(); this.save();
   },
   save(){
     const tile = SceneEngine.getPlayerTile();
     const data = {
+      title:this.title,
       gold:this.gold, materials:this.materials, level:this.level, xp:this.xp, hp:this.hp,
       armorTier:this.armorTier, toolsOwned:this.toolsOwned, items:this.items, hqTier:this.hqTier,
       questIndex:this.questIndex, questGoalProgress:this.questGoalProgress, questDeliverReady:this.questDeliverReady,
@@ -133,6 +146,7 @@ function toast(msg, type){
 // HUD
 // ============================================================
 function updateHud(){
+  document.getElementById('hud-name').textContent = GameState.title;
   const st = GameState.computeStats();
   document.getElementById('hp-fill').style.width = (100*Math.max(0,GameState.hp)/st.hpMax)+'%';
   document.getElementById('hp-text').textContent = Math.max(0,GameState.hp)+'/'+st.hpMax;
@@ -147,6 +161,7 @@ function updateHud(){
 // ============================================================
 // 대화창 (불씨요정) — 학습 시스템의 화자
 // ============================================================
+const TYPEWRITER_MS_PER_CHAR = 24;
 function showDialogue(lines, opts, onDone){
   opts = opts || {};
   const box = document.getElementById('dialogue-box');
@@ -158,12 +173,36 @@ function showDialogue(lines, opts, onDone){
   document.getElementById('dlg-portrait').textContent = opts.portrait || '🔥';
   skipBtn.style.display = opts.skippable ? 'inline-block' : 'none';
   let i = 0;
+  let revealTimer = null;
+  let revealing = false;
   box.classList.add('show');
   SceneEngine.setInputLocked(true);
 
-  function render(){ textEl.textContent = lines[i]; }
-  function advance(){ i++; if(i>=lines.length) finish(); else render(); }
+  // 타자기 효과로 한 글자씩 보여준다 — 클릭을 연타해도 최소한 전체 문장이 화면에 노출된 뒤에야
+  // 다음 줄로 넘어가도록 강제한다 (한 번 더 누르면 그때는 다음 줄로 진행)
+  function render(){
+    const full = lines[i];
+    let ci = 0;
+    revealing = true;
+    textEl.textContent = '';
+    clearInterval(revealTimer);
+    revealTimer = setInterval(()=>{
+      ci++;
+      textEl.textContent = full.slice(0, ci);
+      if(ci >= full.length){ clearInterval(revealTimer); revealing = false; }
+    }, TYPEWRITER_MS_PER_CHAR);
+  }
+  function completeReveal(){
+    clearInterval(revealTimer);
+    textEl.textContent = lines[i];
+    revealing = false;
+  }
+  function advance(){
+    if(revealing){ completeReveal(); return; }
+    i++; if(i>=lines.length) finish(); else render();
+  }
   function finish(){
+    clearInterval(revealTimer);
     box.classList.remove('show');
     nextBtn.removeEventListener('click', advance);
     skipBtn.removeEventListener('click', finish);
@@ -175,50 +214,105 @@ function showDialogue(lines, opts, onDone){
   render();
 }
 
+// 핵심 장면용 중앙 팝업 카드(제목 드롭, 시간 경과 등 강조가 필요한 순간에 사용)
+function showStoryCard(icon, text, onDone){
+  document.getElementById('story-card-icon').textContent = icon;
+  document.getElementById('story-card-text').textContent = text;
+  const modal = document.getElementById('story-card-modal');
+  modal.classList.add('show');
+  SceneEngine.setInputLocked(true);
+  const btn = document.getElementById('story-card-next');
+  const onClick = ()=>{
+    btn.removeEventListener('click', onClick);
+    modal.classList.remove('show');
+    SceneEngine.setInputLocked(false);
+    if(onDone) onDone();
+  };
+  btn.addEventListener('click', onClick);
+}
+
+// 대화 도중 짧은 선택지를 골라보는 가벼운 분기(정오답 판정 없이 반응만 갈리는 플레이버용).
+// choices: [{text, response}]
+function showDialogueChoice(name, portrait, promptLines, choices, onDone){
+  showDialogue(promptLines, {name, portrait, skippable:false}, ()=>{
+    SceneEngine.setInputLocked(true);
+    const box = document.getElementById('dialogue-box');
+    const body = document.getElementById('dlg-body');
+    const textEl = document.getElementById('dlg-text');
+    const nextBtn = document.getElementById('dlg-next');
+    box.classList.add('show');
+    document.getElementById('dlg-name').textContent = name;
+    document.getElementById('dlg-portrait').textContent = portrait;
+    textEl.textContent = '';
+    nextBtn.style.display = 'none';
+    const wrap = document.createElement('div');
+    wrap.className = 'dlg-choice-wrap';
+    choices.forEach(choice=>{
+      const btn = document.createElement('button');
+      btn.className = 'dlg-choice-btn';
+      btn.textContent = choice.text;
+      btn.addEventListener('click', ()=>{
+        wrap.remove();
+        textEl.textContent = choice.response;
+        nextBtn.style.display = '';
+        const onNext = ()=>{
+          nextBtn.removeEventListener('click', onNext);
+          box.classList.remove('show');
+          SceneEngine.setInputLocked(false);
+          if(onDone) onDone();
+        };
+        nextBtn.addEventListener('click', onNext);
+      });
+      wrap.appendChild(btn);
+    });
+    body.appendChild(wrap);
+  });
+}
+
 // ============================================================
 // 오프닝 시퀀스 — 불씨와의 첫 만남 (최초 1회, 세이브 없을 때만 재생)
 // ============================================================
 const INTRO_SEQUENCE = [
-  { name:'내레이션', portrait:'📖', lines:[
+  { type:'dialogue', name:'내레이션', portrait:'📖', lines:[
     '이 마을은 평소와 다름없이 조용한 아침을 맞이했다.',
     '너는 딱히 특별할 것 없는, 그냥 그런 하루를 보내고 있었다 — 그 이상한 빛을 보기 전까지는.'
   ]},
-  { name:'???', portrait:'❓', lines:[
+  { type:'dialogue', name:'???', portrait:'❓', lines:[
     '어...? 저기 뭔가, 조그맣고 이상한 불빛이 둥둥 떠 있어...!'
   ]},
-  { name:'나', portrait:'😱', lines:[
+  { type:'dialogue', name:'나', portrait:'😱', lines:[
     '부, 불이야!!! 불이야!!! 누가 좀 꺼주세요!!!'
   ]},
-  { name:'마을 사람', portrait:'😐', lines:[
+  { type:'dialogue', name:'마을 사람', portrait:'😐', lines:[
     '뭐? 불이라고? ...어디에? 아무것도 안 보이는데?',
     '얘 요즘 자꾸 이상한 소리를 하네... 헛것이라도 보는 거 아니야?'
   ]},
-  { name:'내레이션', portrait:'📖', lines:[
+  { type:'dialogue', name:'내레이션', portrait:'📖', lines:[
     '아무리 둘러봐도, 그 불빛은 다른 사람 눈에는 전혀 보이지 않는 것 같았다.',
-    '그날 이후로 마을 사람들은 너를 이렇게 부르기 시작했다.',
-    '"허구한 날 불났다고 소리 지르는, 좀 이상한 애."'
+    '그날 이후로 마을 사람들은 너를 이렇게 부르기 시작했다.'
   ]},
-  { name:'불씨', portrait:'🔥', lines:[
+  { type:'card', icon:'🏷️', text:'"허구한 날 불났다고 소리 지르는, 좀 이상한 애."' },
+  { type:'dialogue', name:'불씨', portrait:'🔥', lines:[
     '어라? 너 나 보여?! 완전 신기하다 — 지금까지 아무도 날 본 적 없었는데!'
   ]},
-  { name:'나', portrait:'😳', lines:[
+  { type:'dialogue', name:'나', portrait:'😳', lines:[
     '너... 너는 대체 정체가 뭔데?!'
   ]},
-  { name:'불씨', portrait:'🔥', lines:[
-    '나? 그냥 불씨야. 여기저기 마을을 떠돌아다니고 있었지.',
-    '심심했는데 잘됐다 — 이제부터 내가 옆에서 이것저것 가르쳐줄게!'
+  { type:'dialogue', name:'불씨', portrait:'🔥', lines:[
+    '나? 그냥 불씨야. 여기저기 마을을 떠돌아다니고 있었지.'
   ]},
-  { name:'나', portrait:'😑', lines:[
-    '...나는 딱히 부탁한 적 없는데.'
+  { type:'choice', name:'불씨', portrait:'🔥',
+    prompt:['심심했는데 잘됐다 — 이제부터 내가 옆에서 이것저것 가르쳐줄게! 어때?'],
+    choices:[
+      { text:'좋아, 뭐라도 배워보자!', response:'나: 든든하네. 좋아, 잘 부탁해!' },
+      { text:'...나는 딱히 부탁한 적 없는데.', response:'불씨: 에이, 어차피 마을 사람들은 이미 널 이상한 애 취급하잖아? 이판사판이지 뭐!' },
+    ]
+  },
+  { type:'dialogue', name:'내레이션', portrait:'📖', lines:[
+    '그렇게, 아무도 믿어주지 않는 소방관 지망생과 정체 모를 불씨의 동거가 시작되었다.'
   ]},
-  { name:'불씨', portrait:'🔥', lines:[
-    '에이, 어차피 마을 사람들은 이미 널 이상한 애 취급하잖아? 이판사판이지 뭐!'
-  ]},
-  { name:'내레이션', portrait:'📖', lines:[
-    '그렇게, 아무도 믿어주지 않는 소방관 지망생과 정체 모를 불씨의 동거가 시작되었다.',
-    '몇 주 뒤...'
-  ]},
-  { name:'불씨', portrait:'🔥', lines:[
+  { type:'card', icon:'📅', text:'몇 주 뒤...' },
+  { type:'dialogue', name:'불씨', portrait:'🔥', lines:[
     '저기 마을 이장님 보이지? 가서 인사라도 하고 오자.',
     '뭐라도 보여드려야 사람들이 널 조금씩이라도 다시 보게 될 거 아냐!'
   ]},
@@ -229,7 +323,13 @@ function playIntroSequence(onDone){
   function next(){
     if(i >= INTRO_SEQUENCE.length){ if(onDone) onDone(); return; }
     const seg = INTRO_SEQUENCE[i];
-    showDialogue(seg.lines, {name:seg.name, portrait:seg.portrait, skippable:false}, ()=>{ i++; next(); });
+    if(seg.type === 'card'){
+      showStoryCard(seg.icon, seg.text, ()=>{ i++; next(); });
+    } else if(seg.type === 'choice'){
+      showDialogueChoice(seg.name, seg.portrait, seg.prompt, seg.choices, ()=>{ i++; next(); });
+    } else {
+      showDialogue(seg.lines, {name:seg.name, portrait:seg.portrait, skippable:false}, ()=>{ i++; next(); });
+    }
   }
   next();
 }
@@ -268,7 +368,12 @@ function deliverLessonEvent(category, sceneId, onDone){
     GameState.lessonDelivered[category] = already + chunk.length;
     GameState.lessonEventCount[category] = eventIdx + 1;
     GameState.save();
-    if(onDone) onDone();
+    // 1차 확인: 방금 배운 내용을 퀴즈 선택지로 바로 점검한 뒤에야 자유 이동으로 돌아간다
+    // (2차 확인은 던전에서 실제 화재이벤트/전투를 통해 이뤄짐)
+    presentQuiz(category, getQuizBag(category).next(), '1차 확인', ()=>{
+      SceneEngine.setInputLocked(false);
+      if(onDone) onDone();
+    });
   });
 }
 
@@ -320,7 +425,7 @@ function runChapterExam(category, onDone){
       showExamResult(category, correctCount, picks.length, onDone);
       return;
     }
-    presentQuiz(category, picks[idx], `${idx+1} / ${picks.length}`, (result)=>{
+    presentQuiz(category, picks[idx], `문제 ${idx+1} / ${picks.length}`, (result)=>{
       if(result.correct) correctCount++;
       idx++;
       next();
@@ -378,9 +483,10 @@ function presentQuiz(category, q, progressText, cb){
   const order = q.opts.map((_,i)=>i);
   for(let i=order.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
 
-  document.getElementById('quiz-cat').textContent = progressText ? `🎖️ ${QUIZ_BANK[category].label} 진급시험` : QUIZ_BANK[category].label;
+  const isExam = document.getElementById('quiz-modal').classList.contains('exam-mode');
+  document.getElementById('quiz-cat').textContent = isExam ? `🎖️ ${QUIZ_BANK[category].label} 진급시험` : QUIZ_BANK[category].label;
   const progEl = document.getElementById('quiz-progress');
-  if(progressText){ progEl.textContent = `문제 ${progressText}`; progEl.classList.add('show'); }
+  if(progressText){ progEl.textContent = progressText; progEl.classList.add('show'); }
   else progEl.classList.remove('show');
   document.getElementById('quiz-q').textContent = q.q;
   const optsWrap = document.getElementById('quiz-opts');

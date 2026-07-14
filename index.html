@@ -75,6 +75,9 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 #dlg-name{font-size:0.82rem;font-weight:900;color:var(--fire2);margin-bottom:4px;}
 #dlg-text{font-size:0.98rem;line-height:1.5;color:var(--text);word-break:keep-all;min-height:2.6em;}
 #dlg-next{margin-top:8px;align-self:flex-end;background:linear-gradient(160deg,#f4802e,#c94f1a);color:#fff;border:none;border-radius:6px;padding:6px 14px;font-weight:700;font-size:0.8rem;cursor:pointer;float:right;box-shadow:var(--bevel);}
+.dlg-choice-wrap{margin-top:4px;}
+.dlg-choice-btn{display:block;width:100%;text-align:left;margin:6px 0;padding:9px 13px;background:rgba(255,255,255,0.06);border:1px solid var(--border);border-radius:6px;color:var(--text);cursor:pointer;font-size:0.88rem;font-family:inherit;transition:.15s;}
+.dlg-choice-btn:hover{background:rgba(244,128,46,0.18);border-color:var(--fire2);}
 
 /* ===== Modal shared ===== */
 .modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);z-index:2000;justify-content:center;align-items:center;padding:16px;}
@@ -200,7 +203,7 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
 
     <div id="hud">
       <div id="hud-left">
-        <div id="hud-name">신입 소방관</div>
+        <div id="hud-name">이상한 아이</div>
         <div class="hud-bar-row"><span id="lv-badge">Lv1</span>
           <div class="hud-bar"><div id="hp-fill" class="hud-bar-fill" style="width:100%"></div></div>
           <span id="hp-text">30/30</span>
@@ -252,6 +255,15 @@ html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(
         </div>
       </div>
     </div>
+  </div>
+</div>
+
+<!-- Story Card (오프닝 등 핵심 장면 전용 중앙 팝업) -->
+<div class="modal-bg" id="story-card-modal">
+  <div class="modal-card" style="max-width:420px;text-align:center;padding:38px 28px;">
+    <div id="story-card-icon" style="font-size:4.2rem;margin-bottom:16px;line-height:1;"></div>
+    <div id="story-card-text" style="font-size:1.1rem;line-height:1.6;font-weight:800;margin-bottom:22px;word-break:keep-all;color:var(--modal-text);"></div>
+    <button id="story-card-next" style="background:linear-gradient(160deg,#f4802e,#c94f1a);color:#fff;border:none;border-radius:8px;padding:11px 26px;font-weight:800;cursor:pointer;font-size:0.95rem;box-shadow:var(--bevel);">다음 ▶</button>
   </div>
 </div>
 
