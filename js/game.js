@@ -601,6 +601,40 @@ function wireUI(){
   document.querySelectorAll('.shop-tab').forEach(t=>{
     t.addEventListener('click', ()=> renderShop(t.dataset.shopTab));
   });
+  wireKeyboardShortcuts();
+}
+
+// 키보드 편의 기능: 스페이스/엔터로 "다음" 계열 버튼 진행, 숫자키 1~4로 퀴즈 보기 선택
+function wireKeyboardShortcuts(){
+  window.addEventListener('keydown', (e)=>{
+    if(e.key === ' ' || e.key === 'Enter'){
+      if(document.getElementById('dialogue-box').classList.contains('show')){
+        e.preventDefault();
+        document.getElementById('dlg-next').click();
+        return;
+      }
+      if(document.getElementById('quiz-modal').classList.contains('show')){
+        e.preventDefault();
+        const nextBtn = document.getElementById('quiz-next-btn');
+        if(nextBtn.classList.contains('show')) nextBtn.click();
+        return;
+      }
+      if(document.getElementById('exam-result-modal').classList.contains('show')){
+        e.preventDefault();
+        document.getElementById('exam-result-close').click();
+        return;
+      }
+    }
+    // 숫자키 1~4: 퀴즈 보기 선택 (아직 답을 고르지 않았을 때만)
+    if(['1','2','3','4'].includes(e.key) && document.getElementById('quiz-modal').classList.contains('show')){
+      const opts = document.querySelectorAll('#quiz-opts .quiz-opt');
+      const idx = parseInt(e.key, 10) - 1;
+      if(opts[idx] && !opts[idx].disabled){
+        e.preventDefault();
+        opts[idx].click();
+      }
+    }
+  });
 }
 
 // ============================================================
