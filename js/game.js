@@ -172,11 +172,16 @@ function showDialogue(lines, opts, onDone){
   opts = opts || {};
   const box = document.getElementById('dialogue-box');
   const nameEl = document.getElementById('dlg-name');
+  const portraitEl = document.getElementById('dlg-portrait');
   const textEl = document.getElementById('dlg-text');
   const nextBtn = document.getElementById('dlg-next');
   const skipBtn = document.getElementById('dlg-skip');
-  nameEl.textContent = opts.name || '불씨';
-  document.getElementById('dlg-portrait').textContent = opts.portrait || '🔥';
+  // opts.name/portrait를 명시적으로 빈 문자열('')로 넘기면 이름표·아이콘을 아예 숨긴다
+  // (내레이션처럼 화자 없이 텍스트만 보여주고 싶을 때 사용)
+  if(opts.name === ''){ nameEl.style.display = 'none'; }
+  else { nameEl.style.display = ''; nameEl.textContent = opts.name || '불씨'; }
+  if(opts.portrait === ''){ portraitEl.style.display = 'none'; }
+  else { portraitEl.style.display = ''; portraitEl.textContent = opts.portrait || '🔥'; }
   skipBtn.style.display = opts.skippable ? 'inline-block' : 'none';
   let i = 0;
   let revealTimer = null;
@@ -332,7 +337,7 @@ function presentQuizAsChoice(category, q, onDone){
 // 오프닝 시퀀스 — 불씨와의 첫 만남 (최초 1회, 세이브 없을 때만 재생)
 // ============================================================
 const INTRO_SEQUENCE = [
-  { type:'dialogue', name:'내레이션', portrait:'📖', lines:[
+  { type:'dialogue', name:'', portrait:'', lines:[
     '이 마을은 평소와 다름없이 조용한 아침을 맞이했다.',
     '너는 딱히 특별할 것 없는, 그냥 그런 하루를 보내고 있었다 — 그 이상한 빛을 보기 전까지는.'
   ]},
@@ -346,7 +351,7 @@ const INTRO_SEQUENCE = [
     '뭐? 불이라고? ...어디에? 아무것도 안 보이는데?',
     '얘 요즘 자꾸 이상한 소리를 하네... 헛것이라도 보는 거 아니야?'
   ]},
-  { type:'dialogue', name:'내레이션', portrait:'📖', lines:[
+  { type:'dialogue', name:'', portrait:'', lines:[
     '아무리 둘러봐도, 그 불빛은 다른 사람 눈에는 전혀 보이지 않는 것 같았다.',
     '그날 이후로 마을 사람들은 너를 이렇게 부르기 시작했다.'
   ]},
@@ -367,7 +372,7 @@ const INTRO_SEQUENCE = [
       { text:'...나는 딱히 부탁한 적 없는데.', response:'불씨: 에이, 어차피 마을 사람들은 이미 널 이상한 애 취급하잖아? 이판사판이지 뭐!' },
     ]
   },
-  { type:'dialogue', name:'내레이션', portrait:'📖', lines:[
+  { type:'dialogue', name:'', portrait:'', lines:[
     '그렇게, 아무도 믿어주지 않는 소방관 지망생과 정체 모를 불씨의 동거가 시작되었다.'
   ]},
   { type:'card', icon:'📅', text:'몇 주 뒤...' },
