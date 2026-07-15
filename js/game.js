@@ -275,6 +275,59 @@ function showDialogueChoice(name, portrait, promptLines, choices, onDone){
   });
 }
 
+// 레슨 직후 "1차 확인" 전용: 퀴즈 모달 팝업 대신 불씨와의 대화창 안에서 선택지 고르는 방식으로 낸다
+// (미연시풍 — 물어보고, 대답을 고르고, 불씨가 바로 반응해준다)
+const LESSON_CHECK_PROMPTS = [
+  '자, 이해했어? 그럼 이럴 땐 어떻게 해야 할까?',
+  '한번 확인해볼까? 이럴 때 정답은 뭘까?',
+  '좋아, 그럼 문제 하나! 이럴 땐 어떡해야 할까?',
+  '잘 들었지? 그럼 이런 상황엔 어떻게 해야 할까?'
+];
+function presentQuizAsChoice(category, q, onDone){
+  const order = q.opts.map((_,i)=>i);
+  for(let i=order.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [order[i],order[j]]=[order[j],order[i]]; }
+  const prompt = LESSON_CHECK_PROMPTS[Math.floor(Math.random()*LESSON_CHECK_PROMPTS.length)];
+
+  showDialogue([prompt, q.q], {name:'불씨', portrait:'🔥', skippable:false}, ()=>{
+    SceneEngine.setInputLocked(true);
+    const box = document.getElementById('dialogue-box');
+    const body = document.getElementById('dlg-body');
+    const textEl = document.getElementById('dlg-text');
+    const nextBtn = document.getElementById('dlg-next');
+    box.classList.add('show');
+    document.getElementById('dlg-name').textContent = '불씨';
+    document.getElementById('dlg-portrait').textContent = '🔥';
+    textEl.textContent = q.q; // 선택지를 고르는 동안에도 문제 내용이 계속 보이게 유지
+    nextBtn.style.display = 'none';
+    const wrap = document.createElement('div');
+    wrap.className = 'dlg-choice-wrap';
+    order.forEach(origIdx=>{
+      const btn = document.createElement('button');
+      btn.className = 'dlg-choice-btn';
+      btn.textContent = q.opts[origIdx];
+      btn.addEventListener('click', ()=>{
+        wrap.remove();
+        const isCorrect = origIdx === q.correct;
+        textEl.textContent = (isCorrect ? '오, 정답이야! ' : '음... 아쉬워, 정답은 아니야. ') + q.explain;
+        nextBtn.style.display = '';
+        if(!GameState.seenQuestions.has(q.id)){
+          GameState.seenQuestions.add(q.id);
+          GameState.notebookAdd(category, q.q, q.explain);
+        }
+        const onNext = ()=>{
+          nextBtn.removeEventListener('click', onNext);
+          box.classList.remove('show');
+          SceneEngine.setInputLocked(false);
+          if(onDone) onDone({correct:isCorrect, q});
+        };
+        nextBtn.addEventListener('click', onNext);
+      });
+      wrap.appendChild(btn);
+    });
+    body.appendChild(wrap);
+  });
+}
+
 // ============================================================
 // 오프닝 시퀀스 — 불씨와의 첫 만남 (최초 1회, 세이브 없을 때만 재생)
 // ============================================================
@@ -374,9 +427,9 @@ function deliverLessonEvent(category, sceneId, onDone){
     GameState.lessonDelivered[category] = already + chunk.length;
     GameState.lessonEventCount[category] = eventIdx + 1;
     GameState.save();
-    // 1차 확인: 방금 배운 내용을 퀴즈 선택지로 바로 점검한 뒤에야 자유 이동으로 돌아간다
+    // 1차 확인: 방금 배운 내용을 퀴즈 모달이 아니라 불씨와의 대화 선택지로 바로 점검한다
     // (2차 확인은 던전에서 실제 화재이벤트/전투를 통해 이뤄짐)
-    presentQuiz(category, getQuizBag(category).next(), '1차 확인', ()=>{
+    presentQuizAsChoice(category, getQuizBag(category).next(), ()=>{
       SceneEngine.setInputLocked(false);
       if(onDone) onDone();
     });
