@@ -189,22 +189,33 @@ function showDialogue(lines, opts, onDone){
   let i = 0;
   let revealTimer = null;
   let revealing = false;
+  // 방금 막 전체 노출이 끝난 직후엔 아주 짧게 "다음으로 못 넘어가는" 잠금 구간을 둔다.
+  // 이게 없으면 스페이스를 연타(또는 꾹 누르고 있을 때의 키 반복)했을 때 "완성 눌러서 전체노출" →
+  // "그다음 눌러서 다음 줄로" 두 동작이 사실상 동시에 처리돼서, 문장을 눈에 보이지도 않을 만큼
+  // 빠르게 넘겨버리는 문제가 있었다. 처음 보는 줄에서만 적용되고(이미 본 줄은 잠금 없이 즉시 진행),
+  // 자연스럽게 다 읽을 최소한의 시간(350ms)을 보장한다.
+  let justCompleted = false;
+  let cooldownTimer = null;
+  const COMPLETE_LOCK_MS = 350;
   box.classList.add('show');
   SceneEngine.setInputLocked(true);
 
-  // 타자기 효과로 한 글자씩 보여준다 — 처음 보는 줄은 클릭을 연타해도 최소한 전체 문장이 화면에
-  // 노출된 뒤에야 다음 줄로 넘어가도록 강제한다(한 번 더 누르면 그때는 다음 줄로 진행). 단, 이번
-  // 세션에서 이미 한 번 완전히 봤던 줄이라면 두 번째부터는 타자기 없이 곧바로 전체 노출한다.
+  // 타자기 효과로 한 글자씩 보여준다 — 처음 보는 줄은 클릭을 연타(또는 꾹 누르고 있어도)해도 최소한
+  // 전체 문장이 화면에 노출되고 짧은 잠금 시간이 지나야 다음 줄로 넘어가도록 강제한다. 단, 이번
+  // 세션에서 이미 한 번 완전히 봤던 줄이라면 두 번째부터는 타자기·잠금 없이 곧바로 전체 노출한다.
   function render(){
     const full = lines[i];
+    clearTimeout(cooldownTimer);
     if(seenDialogueLines.has(full)){
       clearInterval(revealTimer);
       textEl.textContent = full;
       revealing = false;
+      justCompleted = false;
       return;
     }
     let ci = 0;
     revealing = true;
+    justCompleted = false;
     textEl.textContent = '';
     clearInterval(revealTimer);
     revealTimer = setInterval(()=>{
@@ -218,13 +229,18 @@ function showDialogue(lines, opts, onDone){
     textEl.textContent = lines[i];
     revealing = false;
     seenDialogueLines.add(lines[i]);
+    justCompleted = true;
+    clearTimeout(cooldownTimer);
+    cooldownTimer = setTimeout(()=>{ justCompleted = false; }, COMPLETE_LOCK_MS);
   }
   function advance(){
     if(revealing){ completeReveal(); return; }
+    if(justCompleted) return; // 막 다 보여준 직후 연타는 무시 — 최소한 한 박자는 읽게 한다
     i++; if(i>=lines.length) finish(); else render();
   }
   function finish(){
     clearInterval(revealTimer);
+    clearTimeout(cooldownTimer);
     box.classList.remove('show');
     nextBtn.removeEventListener('click', advance);
     skipBtn.removeEventListener('click', finish);
