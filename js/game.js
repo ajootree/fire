@@ -168,6 +168,9 @@ function updateHud(){
 // 대화창 (불씨요정) — 학습 시스템의 화자
 // ============================================================
 const TYPEWRITER_MS_PER_CHAR = 24;
+// 이번 플레이 세션에서 이미 완전히 보여준 대사 줄(원문 그대로 키로 사용) — 새로고침하면 초기화된다.
+// 처음 보는 줄은 난타해도 타자기가 다 끝나야 다음으로 넘어가지만, 한 번 다 본 줄은 그다음부터 즉시 표시된다.
+const seenDialogueLines = new Set();
 function showDialogue(lines, opts, onDone){
   opts = opts || {};
   const box = document.getElementById('dialogue-box');
@@ -189,10 +192,17 @@ function showDialogue(lines, opts, onDone){
   box.classList.add('show');
   SceneEngine.setInputLocked(true);
 
-  // 타자기 효과로 한 글자씩 보여준다 — 클릭을 연타해도 최소한 전체 문장이 화면에 노출된 뒤에야
-  // 다음 줄로 넘어가도록 강제한다 (한 번 더 누르면 그때는 다음 줄로 진행)
+  // 타자기 효과로 한 글자씩 보여준다 — 처음 보는 줄은 클릭을 연타해도 최소한 전체 문장이 화면에
+  // 노출된 뒤에야 다음 줄로 넘어가도록 강제한다(한 번 더 누르면 그때는 다음 줄로 진행). 단, 이번
+  // 세션에서 이미 한 번 완전히 봤던 줄이라면 두 번째부터는 타자기 없이 곧바로 전체 노출한다.
   function render(){
     const full = lines[i];
+    if(seenDialogueLines.has(full)){
+      clearInterval(revealTimer);
+      textEl.textContent = full;
+      revealing = false;
+      return;
+    }
     let ci = 0;
     revealing = true;
     textEl.textContent = '';
@@ -200,13 +210,14 @@ function showDialogue(lines, opts, onDone){
     revealTimer = setInterval(()=>{
       ci++;
       textEl.textContent = full.slice(0, ci);
-      if(ci >= full.length){ clearInterval(revealTimer); revealing = false; }
+      if(ci >= full.length){ completeReveal(); }
     }, TYPEWRITER_MS_PER_CHAR);
   }
   function completeReveal(){
     clearInterval(revealTimer);
     textEl.textContent = lines[i];
     revealing = false;
+    seenDialogueLines.add(lines[i]);
   }
   function advance(){
     if(revealing){ completeReveal(); return; }
