@@ -592,6 +592,34 @@ function wireHooks(){
 }
 
 // ============================================================
+// 스페이스바/엔터로 대화·퀴즈 "다음" 넘기기
+// (SceneEngine의 스페이스=상호작용 키와는 별개: 모달이 열려있을 때만 동작하고,
+//  모달이 없을 때는 SceneEngine 쪽 로직이 그대로 처리한다)
+// ============================================================
+function wireGlobalKeys(){
+  window.addEventListener('keydown', (e)=>{
+    if(e.key !== ' ' && e.key !== 'Enter') return;
+    if(document.getElementById('dialogue-box').classList.contains('show')){
+      e.preventDefault();
+      document.getElementById('dlg-next').click();
+      return;
+    }
+    if(document.getElementById('quiz-modal').classList.contains('show')){
+      const nextBtn = document.getElementById('quiz-next-btn');
+      if(nextBtn.classList.contains('show')){
+        e.preventDefault();
+        nextBtn.click();
+      }
+      return;
+    }
+    if(document.getElementById('exam-result-modal').classList.contains('show')){
+      e.preventDefault();
+      document.getElementById('exam-result-close').click();
+    }
+  });
+}
+
+// ============================================================
 // UI 바인딩
 // ============================================================
 function wireUI(){
@@ -618,6 +646,7 @@ function boot(){
   SceneEngine.init();
   wireHooks();
   wireUI();
+  wireGlobalKeys();
   SceneEngine.loadScene(GameState.sceneId, {x:GameState.playerX, y:GameState.playerY});
   document.getElementById('quest-panel').classList.add('show');
   updateHud();
