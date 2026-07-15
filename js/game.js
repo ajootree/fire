@@ -3,6 +3,10 @@
  * 그리고 부트스트랩. 플레인 스크립트로 다른 js 파일들과 전역을 공유한다.
  */
 
+// 개발/테스트 중 임시 스위치: true면 localStorage 저장·불러오기를 아예 건너뛰어
+// 매번 새로고침할 때마다 새 게임으로 시작한다. 실제 배포 전에 반드시 false로 되돌릴 것.
+const DEV_DISABLE_SAVE = true;
+
 // ============================================================
 // GameState
 // ============================================================
@@ -85,6 +89,7 @@ const GameState = {
     updateHud(); updateQuestPanel(); this.save();
   },
   save(){
+    if(DEV_DISABLE_SAVE) return;
     const tile = SceneEngine.getPlayerTile();
     const data = {
       gold:this.gold, materials:this.materials, level:this.level, xp:this.xp, hp:this.hp,
@@ -100,6 +105,7 @@ const GameState = {
     try{ localStorage.setItem('ffl_save_v1', JSON.stringify(data)); }catch(e){}
   },
   load(){
+    if(DEV_DISABLE_SAVE) return false;
     try{
       const raw = localStorage.getItem('ffl_save_v1');
       if(!raw) return false;
