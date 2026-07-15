@@ -39,6 +39,24 @@ const BattleEngine = (function(){
 
   function setLog(msg){ el('battle-log').textContent = msg; }
 
+  // ===== 손맛 연출: 피격 플래시 / 화면 흔들림 / 데미지 팝업 =====
+  function flashHit(elId){
+    const node = el(elId);
+    node.classList.remove('hit-flash'); void node.offsetWidth; node.classList.add('hit-flash');
+  }
+  function shakeArena(){
+    const node = el('battle-arena');
+    node.classList.remove('hit-shake'); void node.offsetWidth; node.classList.add('hit-shake');
+  }
+  function popup(sideElId, text, cls){
+    const side = el(sideElId).parentElement;
+    const p = document.createElement('div');
+    p.className = 'dmg-popup ' + (cls||'dmg');
+    p.textContent = text;
+    side.appendChild(p);
+    setTimeout(()=> p.remove(), 850);
+  }
+
   let bound = false;
   function bindButtonsOnce(){
     if(bound) return; bound = true;
@@ -98,17 +116,23 @@ const BattleEngine = (function(){
           GameState.hp = Math.max(0, GameState.hp - selfDmg);
           msg = `앗, ${tool.name}은(는) 이 화재엔 안 맞아! 오히려 ${selfDmg}의 피해를 입었다!`;
           dmg = 0;
+          flashHit('battle-player-emoji'); shakeArena();
+          popup('battle-player-emoji', '-'+selfDmg, 'weak');
         } else {
           const crit = Math.random()*100 < state.playerStats.crit;
           dmg = Math.round(tool.baseAtk * mult * (crit?1.6:1) * state.playerStats.atkFactor);
           state.monsterHp = Math.max(0, state.monsterHp - dmg);
           msg = `정답! ${tool.name}(으)로 ${dmg}의 피해를 입혔다!` + (crit?' (치명타!)':'') + (mult>=1.4?' 상성 적중!':(mult<0.9?' (상성이 약해요)':''));
+          flashHit('battle-monster-emoji'); shakeArena();
+          popup('battle-monster-emoji', '-'+dmg, crit?'crit':(mult<0.9?'weak':'dmg'));
         }
       } else {
         const crit = Math.random()*100 < state.playerStats.crit;
         dmg = Math.round(tool.baseAtk * (tool.fixedMult||1) * (crit?1.6:1) * state.playerStats.atkFactor);
         state.monsterHp = Math.max(0, state.monsterHp - dmg);
         msg = `정답! ${tool.name}(으)로 ${dmg}의 피해를 입혔다!` + (crit?' (치명타!)':'');
+        flashHit('battle-monster-emoji'); shakeArena();
+        popup('battle-monster-emoji', '-'+dmg, crit?'crit':'dmg');
       }
     } else {
       msg = '오답이었다... 몬스터의 반격이 이어진다!';
@@ -127,6 +151,8 @@ const BattleEngine = (function(){
     const raw = Math.max(1, state.monsterDef.atk - state.playerStats.def);
     GameState.hp = Math.max(0, GameState.hp - raw);
     setLog(`${state.monsterDef.name}의 공격! ${raw}의 피해를 입었다.`);
+    flashHit('battle-player-emoji'); shakeArena();
+    popup('battle-player-emoji', '-'+raw, 'dmg');
     refreshBars();
     state.turnBusy = false;
     if(GameState.hp <= 0){ setTimeout(onLose, 700); }
@@ -141,6 +167,7 @@ const BattleEngine = (function(){
     GameState.items.firstaid--;
     GameState.hp = Math.min(state.playerStats.hpMax, GameState.hp + ITEMS.firstaid.heal);
     setLog(`응급키트를 사용해 HP를 ${ITEMS.firstaid.heal} 회복했다!`);
+    popup('battle-player-emoji', '+'+ITEMS.firstaid.heal, 'heal');
     refreshBars();
     setTimeout(monsterTurn, 850);
   }
