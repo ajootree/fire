@@ -5,7 +5,7 @@
 
 // 개발/테스트 중 임시 스위치: true면 localStorage 저장·불러오기를 아예 건너뛰어
 // 매번 새로고침할 때마다 새 게임으로 시작한다. 실제 배포 전에 반드시 false로 되돌릴 것.
-const DEV_DISABLE_SAVE = true;
+const DEV_DISABLE_SAVE = false;
 
 // ============================================================
 // GameState
