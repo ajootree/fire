@@ -12,6 +12,7 @@ const DEV_DISABLE_SAVE = false;
 // ============================================================
 const GameState = {
   title:'이상한 아이', // 스토리 진행에 따라 승격됨: 이상한 아이 → 수습 소방관 → 신입 소방관
+  playerName:'', // 시작 화면에서 입력한 플레이어 이름 — NPC 대사의 {name} 자리에 채워진다
   gold:20, materials:10, level:1, xp:0, hp:30,
   armorTier:{helmet:1, suit:1, gloves:1},
   toolsOwned:['powder'],
@@ -104,7 +105,7 @@ const GameState = {
     if(DEV_DISABLE_SAVE) return;
     const tile = SceneEngine.getPlayerTile();
     const data = {
-      title:this.title,
+      title:this.title, playerName:this.playerName,
       gold:this.gold, materials:this.materials, level:this.level, xp:this.xp, hp:this.hp,
       armorTier:this.armorTier, toolsOwned:this.toolsOwned, items:this.items, hqTier:this.hqTier,
       questIndex:this.questIndex, questGoalProgress:this.questGoalProgress, questDeliverReady:this.questDeliverReady,
@@ -152,7 +153,8 @@ function toast(msg, type){
 // HUD
 // ============================================================
 function updateHud(){
-  document.getElementById('hud-name').textContent = GameState.title;
+  document.getElementById('hud-name').textContent = GameState.playerName
+    ? `${GameState.playerName} · ${GameState.title}` : GameState.title;
   const st = GameState.computeStats();
   document.getElementById('hp-fill').style.width = (100*Math.max(0,GameState.hp)/st.hpMax)+'%';
   document.getElementById('hp-text').textContent = Math.max(0,GameState.hp)+'/'+st.hpMax;
@@ -171,6 +173,10 @@ const TYPEWRITER_MS_PER_CHAR = 24;
 // 이번 플레이 세션에서 이미 완전히 보여준 대사 줄(원문 그대로 키로 사용) — 새로고침하면 초기화된다.
 // 처음 보는 줄은 난타해도 타자기가 다 끝나야 다음으로 넘어가지만, 한 번 다 본 줄은 그다음부터 즉시 표시된다.
 const seenDialogueLines = new Set();
+// 대사 원문 속 {name} 자리를 플레이어가 입력한 이름으로 채워준다 — NPC/불씨가 이름을 불러주는 연출용.
+function nameify(text){
+  return String(text).replace(/\{name\}/g, GameState.playerName || '너');
+}
 function showDialogue(lines, opts, onDone){
   opts = opts || {};
   const box = document.getElementById('dialogue-box');
@@ -203,12 +209,13 @@ function showDialogue(lines, opts, onDone){
   // 스페이스/엔터를 아무리 눌러도(연타·꾹 누르기 모두) 완전히 무시된다. 즉 스킵 자체가 불가능하며,
   // 문장이 끝까지 다 나온 뒤에야 "다음"이 먹힌다. 단, 이번 세션에서 이미 한 번 완전히 봤던 줄이라면
   // 두 번째부터는 타자기·잠금 없이 곧바로 전체 노출한다.
+  let currentFull = '';
   function render(){
-    const full = lines[i];
+    currentFull = nameify(lines[i]);
     clearTimeout(cooldownTimer);
-    if(seenDialogueLines.has(full)){
+    if(seenDialogueLines.has(currentFull)){
       clearInterval(revealTimer);
-      textEl.textContent = full;
+      textEl.textContent = currentFull;
       revealing = false;
       justCompleted = false;
       return;
@@ -220,15 +227,15 @@ function showDialogue(lines, opts, onDone){
     clearInterval(revealTimer);
     revealTimer = setInterval(()=>{
       ci++;
-      textEl.textContent = full.slice(0, ci);
-      if(ci >= full.length){ completeReveal(); }
+      textEl.textContent = currentFull.slice(0, ci);
+      if(ci >= currentFull.length){ completeReveal(); }
     }, TYPEWRITER_MS_PER_CHAR);
   }
   function completeReveal(){
     clearInterval(revealTimer);
-    textEl.textContent = lines[i];
+    textEl.textContent = currentFull;
     revealing = false;
-    seenDialogueLines.add(lines[i]);
+    seenDialogueLines.add(currentFull);
     justCompleted = true;
     clearTimeout(cooldownTimer);
     cooldownTimer = setTimeout(()=>{ justCompleted = false; }, COMPLETE_LOCK_MS);
@@ -291,7 +298,7 @@ function showDialogueChoice(name, portrait, promptLines, choices, onDone){
       btn.textContent = choice.text;
       btn.addEventListener('click', ()=>{
         wrap.remove();
-        textEl.textContent = choice.response;
+        textEl.textContent = nameify(choice.response);
         nextBtn.style.display = '';
         const onNext = ()=>{
           nextBtn.removeEventListener('click', onNext);
@@ -310,10 +317,10 @@ function showDialogueChoice(name, portrait, promptLines, choices, onDone){
 // 레슨 직후 "1차 확인" 전용: 퀴즈 모달 팝업 대신 불씨와의 대화창 안에서 선택지 고르는 방식으로 낸다
 // (미연시풍 — 물어보고, 대답을 고르고, 불씨가 바로 반응해준다)
 const LESSON_CHECK_PROMPTS = [
-  '자, 이해했어? 그럼 이럴 땐 어떻게 해야 할까?',
-  '한번 확인해볼까? 이럴 때 정답은 뭘까?',
-  '좋아, 그럼 문제 하나! 이럴 땐 어떡해야 할까?',
-  '잘 들었지? 그럼 이런 상황엔 어떻게 해야 할까?'
+  '자, {name}, 이해했어? 그럼 이럴 땐 어떻게 해야 할까?',
+  '{name}, 한번 확인해볼까? 이럴 때 정답은 뭘까?',
+  '좋아 {name}, 그럼 문제 하나! 이럴 땐 어떡해야 할까?',
+  '잘 들었지, {name}? 그럼 이런 상황엔 어떻게 해야 할까?'
 ];
 function presentQuizAsChoice(category, q, onDone){
   const order = q.opts.map((_,i)=>i);
@@ -329,7 +336,7 @@ function presentQuizAsChoice(category, q, onDone){
     box.classList.add('show');
     document.getElementById('dlg-name').textContent = '불씨';
     document.getElementById('dlg-portrait').textContent = '🔥';
-    textEl.textContent = q.q; // 선택지를 고르는 동안에도 문제 내용이 계속 보이게 유지
+    textEl.textContent = nameify(q.q); // 선택지를 고르는 동안에도 문제 내용이 계속 보이게 유지
     nextBtn.style.display = 'none';
     const wrap = document.createElement('div');
     wrap.className = 'dlg-choice-wrap';
@@ -340,7 +347,7 @@ function presentQuizAsChoice(category, q, onDone){
       btn.addEventListener('click', ()=>{
         wrap.remove();
         const isCorrect = origIdx === q.correct;
-        textEl.textContent = (isCorrect ? '오, 정답이야! ' : '음... 아쉬워, 정답은 아니야. ') + q.explain;
+        textEl.textContent = nameify((isCorrect ? '오, 정답이야! ' : '음... 아쉬워, 정답은 아니야. ') + q.explain);
         nextBtn.style.display = '';
         if(!GameState.seenQuestions.has(q.id)){
           GameState.seenQuestions.add(q.id);
@@ -376,15 +383,15 @@ const INTRO_SEQUENCE = [
   ]},
   { type:'dialogue', name:'마을 사람', portrait:'😐', lines:[
     '뭐? 불이라고? ...어디에? 아무것도 안 보이는데?',
-    '얘 요즘 자꾸 이상한 소리를 하네... 헛것이라도 보는 거 아니야?'
+    '{name}, 너 요즘 자꾸 이상한 소리를 하네... 헛것이라도 보는 거 아니야?'
   ]},
   { type:'dialogue', name:'', portrait:'', lines:[
     '아무리 둘러봐도, 그 불빛은 다른 사람 눈에는 전혀 보이지 않는 것 같았다.',
-    '그날 이후로 마을 사람들은 너를 이렇게 부르기 시작했다.'
+    '그날 이후로 마을 사람들은 {name}를 이렇게 부르기 시작했다.'
   ]},
   { type:'card', icon:'🏷️', text:'"허구한 날 불났다고 소리 지르는, 좀 이상한 애."' },
   { type:'dialogue', name:'불씨', portrait:'🔥', lines:[
-    '어라? 너 나 보여?! 완전 신기하다 — 지금까지 아무도 날 본 적 없었는데!'
+    '어라? {name}, 너 나 보여?! 완전 신기하다 — 지금까지 아무도 날 본 적 없었는데!'
   ]},
   { type:'dialogue', name:'나', portrait:'😳', lines:[
     '너... 너는 대체 정체가 뭔데?!'
@@ -393,10 +400,10 @@ const INTRO_SEQUENCE = [
     '나? 그냥 불씨야. 여기저기 마을을 떠돌아다니고 있었지.'
   ]},
   { type:'choice', name:'불씨', portrait:'🔥',
-    prompt:['심심했는데 잘됐다 — 이제부터 내가 옆에서 이것저것 가르쳐줄게! 어때?'],
+    prompt:['{name}, 심심했는데 잘됐다 — 이제부터 내가 옆에서 이것저것 가르쳐줄게! 어때?'],
     choices:[
       { text:'좋아, 뭐라도 배워보자!', response:'나: 든든하네. 좋아, 잘 부탁해!' },
-      { text:'...나는 딱히 부탁한 적 없는데.', response:'불씨: 에이, 어차피 마을 사람들은 이미 널 이상한 애 취급하잖아? 이판사판이지 뭐!' },
+      { text:'...나는 딱히 부탁한 적 없는데.', response:'불씨: 에이, 어차피 마을 사람들은 이미 {name}를 이상한 애 취급하잖아? 이판사판이지 뭐!' },
     ]
   },
   { type:'dialogue', name:'', portrait:'', lines:[
@@ -404,7 +411,7 @@ const INTRO_SEQUENCE = [
   ]},
   { type:'card', icon:'📅', text:'몇 주 뒤...' },
   { type:'dialogue', name:'불씨', portrait:'🔥', lines:[
-    '저기 마을 이장님 보이지? 가서 인사라도 하고 오자.',
+    '{name}, 저기 마을 이장님 보이지? 가서 인사라도 하고 오자.',
     '뭐라도 보여드려야 사람들이 널 조금씩이라도 다시 보게 될 거 아냐!'
   ]},
 ];
@@ -896,8 +903,9 @@ function wireKeyboardShortcuts(){
 // ============================================================
 // 부트스트랩
 // ============================================================
-function boot(){
+function boot(typedName){
   const hasSave = GameState.load();
+  if(typedName) GameState.playerName = typedName; // 방금 입력창에 입력한 이름이 저장된 이름보다 우선한다
   SCENES.hq.bg = HQ_TIERS[GameState.hqTier-1].bg;
   SceneEngine.init();
   wireHooks();
@@ -911,7 +919,21 @@ function boot(){
   }
 }
 
+// 시작 화면 진입 시 저장된 이름이 있으면 입력창에 미리 채워둔다 (이어하기 시 재입력할 필요 없게)
+(function prefillBootName(){
+  const hasSave = GameState.load();
+  const input = document.getElementById('boot-name-input');
+  if(hasSave && input && GameState.playerName) input.value = GameState.playerName;
+})();
+
 document.getElementById('boot-start-btn').addEventListener('click', ()=>{
+  const nameInput = document.getElementById('boot-name-input');
+  const typedName = nameInput.value.trim().slice(0,8);
+  if(!typedName){
+    nameInput.focus();
+    toast('이름을 먼저 입력해줘!', 'error');
+    return;
+  }
   document.getElementById('boot-screen').style.display = 'none';
-  boot();
+  boot(typedName);
 });
