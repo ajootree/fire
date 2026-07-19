@@ -189,20 +189,20 @@ function showDialogue(lines, opts, onDone){
   let i = 0;
   let revealTimer = null;
   let revealing = false;
-  // 방금 막 전체 노출이 끝난 직후엔 아주 짧게 "다음으로 못 넘어가는" 잠금 구간을 둔다.
-  // 이게 없으면 스페이스를 연타(또는 꾹 누르고 있을 때의 키 반복)했을 때 "완성 눌러서 전체노출" →
-  // "그다음 눌러서 다음 줄로" 두 동작이 사실상 동시에 처리돼서, 문장을 눈에 보이지도 않을 만큼
-  // 빠르게 넘겨버리는 문제가 있었다. 처음 보는 줄에서만 적용되고(이미 본 줄은 잠금 없이 즉시 진행),
-  // 자연스럽게 다 읽을 최소한의 시간(350ms)을 보장한다.
+  // 자연스럽게 전체 노출이 끝난 직후엔 아주 짧게 "다음으로 못 넘어가는" 잠금 구간을 둔다.
+  // 이게 없으면 완성되는 순간 스페이스를 꾹 누르고 있던 키 반복 이벤트가 곧바로 "다음 줄로"까지
+  // 이어서 처리돼버려 문장이 눈에 보이지도 않을 만큼 빠르게 넘어가는 문제가 있었다. 처음 보는
+  // 줄에서만 적용되고(이미 본 줄은 잠금 없이 즉시 진행), 자연스럽게 다 읽을 최소한의 시간(350ms)을 보장한다.
   let justCompleted = false;
   let cooldownTimer = null;
   const COMPLETE_LOCK_MS = 350;
   box.classList.add('show');
   SceneEngine.setInputLocked(true);
 
-  // 타자기 효과로 한 글자씩 보여준다 — 처음 보는 줄은 클릭을 연타(또는 꾹 누르고 있어도)해도 최소한
-  // 전체 문장이 화면에 노출되고 짧은 잠금 시간이 지나야 다음 줄로 넘어가도록 강제한다. 단, 이번
-  // 세션에서 이미 한 번 완전히 봤던 줄이라면 두 번째부터는 타자기·잠금 없이 곧바로 전체 노출한다.
+  // 타자기 효과로 한 글자씩 보여준다 — 처음 보는 줄은 타자기가 끝까지 다 진행되기 전까지는 클릭이나
+  // 스페이스/엔터를 아무리 눌러도(연타·꾹 누르기 모두) 완전히 무시된다. 즉 스킵 자체가 불가능하며,
+  // 문장이 끝까지 다 나온 뒤에야 "다음"이 먹힌다. 단, 이번 세션에서 이미 한 번 완전히 봤던 줄이라면
+  // 두 번째부터는 타자기·잠금 없이 곧바로 전체 노출한다.
   function render(){
     const full = lines[i];
     clearTimeout(cooldownTimer);
@@ -234,7 +234,7 @@ function showDialogue(lines, opts, onDone){
     cooldownTimer = setTimeout(()=>{ justCompleted = false; }, COMPLETE_LOCK_MS);
   }
   function advance(){
-    if(revealing){ completeReveal(); return; }
+    if(revealing) return; // 타자기가 아직 진행 중이면 눌러도 무시 — 완전히 다 보여줄 때까지 스킵 불가
     if(justCompleted) return; // 막 다 보여준 직후 연타는 무시 — 최소한 한 박자는 읽게 한다
     i++; if(i>=lines.length) finish(); else render();
   }
